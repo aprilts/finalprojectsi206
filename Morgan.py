@@ -24,7 +24,6 @@ def get_data(group_in, state_in, sex_in):
     dict_list = json.loads(data)
     
     return dict_list
-    
 
 def setupTimeTable(data, cur, conn):
 
@@ -54,8 +53,6 @@ def get_selected_age_group(data):
     selected_age_groups.append(age_groups[13])
     selected_age_groups.append(age_groups[14])
     return selected_age_groups
-    
-
 
 def setupAgeGroupTable(data, cur, conn):
     cur.execute("CREATE TABLE IF NOT EXISTS AgeGroupTable(id INT , Age_Group TEXT UNIQUE)")

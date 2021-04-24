@@ -1,14 +1,11 @@
 import unittest
 import sqlite3
+import requests
 import json
 import re
 import os
-import requests
 
-#
-# Name: April Tsai
-# Who did you work with: Morgan Bo
-#
+#The following functions retrieve data from APIs
 
 API_KEY = "4M1NX09GXDYK7C0S"
 
@@ -52,7 +49,7 @@ def create_request_url(symbol):
 
     return url
 
-def get_data_from_cache(symbol, CACHE_FILE):
+def get_stocks_data_from_cache(symbol, CACHE_FILE):
 
     url = create_request_url(symbol)
     dictionary = read_cache(CACHE_FILE)
@@ -76,7 +73,22 @@ def get_data_from_cache(symbol, CACHE_FILE):
         except:
             print("Exception")
             return None   
+
+def get_covid_data(group_in, state_in, sex_in):
+    base_url = "https://data.cdc.gov/resource/9bhg-hcku.json?$where=`group`={}&state={}&sex={}"
+
+    group = group_in
+    state = state_in
+    sex = sex_in
+
+    request_url = base_url.format(group, state, sex)
+   
+    r = requests.get(request_url)
+    data = r.text
+    dict_list = json.loads(data)
     
+    return dict_list
+
 def read_data_from_file(filename):
     full_path = os.path.join(os.path.dirname(__file__), filename)
     f = open(full_path)
@@ -85,6 +97,7 @@ def read_data_from_file(filename):
     json_data = json.loads(file_data)
     return json_data
 
+# The following functions sets up the database and inserts data
 def set_up_database(db_name):
     path = os.path.dirname(os.path.abspath(__file__))
     conn = sqlite3.connect(path+'/'+db_name)
@@ -115,7 +128,6 @@ def set_up_tesla_stocks_table(data, cur, conn, time_frame):
 
     cur.execute("SELECT COUNT(*) FROM Tesla_Stock")
     row_count = int(cur.fetchone()[0])
-    print(row_count)
 
     stop_program = 0
 
@@ -291,6 +303,8 @@ def set_up_tesla_stocks_table(data, cur, conn, time_frame):
 
             if stop_program == 3:
                 break
+        else: 
+            print("DONE RUNNING TESLA DATA") 
 
 def set_up_gamestop_stocks_table(data, cur, conn, time_frame):
     cur.execute("CREATE TABLE IF NOT EXISTS Gamestop_Stock (date TEXT PRIMARY KEY, open REAL, high REAL, low REAL, close REAL, volume REAL)")
@@ -300,7 +314,6 @@ def set_up_gamestop_stocks_table(data, cur, conn, time_frame):
 
     cur.execute("SELECT COUNT(*) FROM Gamestop_Stock")
     row_count = int(cur.fetchone()[0])
-    print(row_count)
 
     stop_program = 0
 
@@ -476,7 +489,158 @@ def set_up_gamestop_stocks_table(data, cur, conn, time_frame):
 
             if stop_program == 3:
                 break
+        else:
+            print("DONE RUNNING GAMESTOP DATA") 
 
+def set_up_time_table(data, cur, conn):
+    cur.execute("CREATE TABLE IF NOT EXISTS TimeTable (time_id INT, YearandMonth TEXT UNIQUE)")
+
+    id = 0
+    for month in data:
+        if (month["age_group"] == "All Ages"):
+            id += 1
+            regex = r".+start_date':\s'([0-9]+-[0-9]+)"
+            yrmm = re.findall(regex, str(month))
+            cur.execute('INSERT OR IGNORE INTO TimeTable (time_id, YearandMonth) VALUES (?, ?)', (id, yrmm[0]))
+    conn.commit()
+
+def get_selected_age_group(data):
+    age_groups = []
+    selected_age_groups = []
+    for month in data:
+        if month["age_group"] not in age_groups:
+            age_groups.append(month["age_group"])
+    #Only want selected age groups: 5-14, 15-24, 25-34, 35-44, 45-54, 55-64, 65-74 (7 Groups)
+    selected_age_groups.append(age_groups[4])
+    selected_age_groups.append(age_groups[5])
+    selected_age_groups.append(age_groups[7])
+    selected_age_groups.append(age_groups[9])
+    selected_age_groups.append(age_groups[11])
+    selected_age_groups.append(age_groups[13])
+    selected_age_groups.append(age_groups[14])
+    return selected_age_groups
+
+def set_up_age_group_table(data, cur, conn):
+    cur.execute("CREATE TABLE IF NOT EXISTS AgeGroupTable(id INT , Age_Group TEXT UNIQUE)")
+    age_groups = get_selected_age_group(data)
+    
+    for i in range(7):
+        cur.execute('INSERT OR IGNORE INTO AgeGroupTable (id, Age_Group) VALUES (?, ?)', (i + 1, age_groups[i]))
+    conn.commit()
+
+def set_up_covid_deaths_table(data, cur, conn, age_groups):
+    cur.execute("CREATE TABLE IF NOT EXISTS Coviddeaths (YearandMonth_id INT, age_group_id INT, numDeaths INT)")
+
+    cur.execute('SELECT COUNT(YearandMonth_id) FROM Coviddeaths')
+    row_value = cur.fetchone()[0]
+
+    if row_value == 0:  
+        for month in data: 
+            index = 0    
+            if (month["age_group"] == age_groups[index]): 
+                regex = r".+start_date':\s'([0-9]+-[0-9]+)"  
+                yrmm = re.findall(regex, str(month))  
+                cur.execute('SELECT time_id FROM TimeTable WHERE YearandMonth = ?', (yrmm[0], ))  
+                timeID = cur.fetchone()[0]    
+                regex = r".+age_group':\s'([A-Za-z0-9]+\s?\-?[A-Za-z0-9]+\syears)" 
+                age_range = re.findall(regex, str(month))
+                cur.execute('SELECT id FROM AgeGroupTable WHERE Age_Group = ?', (age_range[0], ))   
+                ages = cur.fetchone()[0]   
+                cur.execute('INSERT OR IGNORE INTO Coviddeaths (YearandMonth_id, age_group_id, numDeaths) VALUES (?, ?, ?)' , (timeID, ages,  month["covid_19_deaths"]))
+                conn.commit()  
+
+    elif row_value == 16:
+          for month in data: 
+            index = 1    
+            if (month["age_group"] == age_groups[index]): 
+                regex = r".+start_date':\s'([0-9]+-[0-9]+)"  
+                yrmm = re.findall(regex, str(month))  
+                cur.execute('SELECT time_id FROM TimeTable WHERE YearandMonth = ?', (yrmm[0], ))  
+                timeID = cur.fetchone()[0]    
+                regex = r".+age_group':\s'([A-Za-z0-9]+\s?\-?[A-Za-z0-9]+\syears)" 
+                age_range = re.findall(regex, str(month))
+                cur.execute('SELECT id FROM AgeGroupTable WHERE Age_Group = ?', (age_range[0], ))   
+                ages = cur.fetchone()[0]   
+                cur.execute('INSERT OR IGNORE INTO Coviddeaths (YearandMonth_id, age_group_id, numDeaths) VALUES (?, ?, ?)' , (timeID, ages,  month["covid_19_deaths"]))
+                conn.commit() 
+
+    elif row_value == 32:
+          for month in data: 
+            index = 2    
+            if (month["age_group"] == age_groups[index]): 
+                regex = r".+start_date':\s'([0-9]+-[0-9]+)"  
+                yrmm = re.findall(regex, str(month))  
+                cur.execute('SELECT time_id FROM TimeTable WHERE YearandMonth = ?', (yrmm[0], ))  
+                timeID = cur.fetchone()[0]    
+                regex = r".+age_group':\s'([A-Za-z0-9]+\s?\-?[A-Za-z0-9]+\syears)" 
+                age_range = re.findall(regex, str(month))
+                cur.execute('SELECT id FROM AgeGroupTable WHERE Age_Group = ?', (age_range[0], ))   
+                ages = cur.fetchone()[0]   
+                cur.execute('INSERT OR IGNORE INTO Coviddeaths (YearandMonth_id, age_group_id, numDeaths) VALUES (?, ?, ?)' , (timeID, ages,  month["covid_19_deaths"]))
+                conn.commit()  
+
+    elif row_value == 48:
+          for month in data: 
+            index = 3   
+            if (month["age_group"] == age_groups[index]): 
+                regex = r".+start_date':\s'([0-9]+-[0-9]+)"  
+                yrmm = re.findall(regex, str(month))  
+                cur.execute('SELECT time_id FROM TimeTable WHERE YearandMonth = ?', (yrmm[0], ))  
+                timeID = cur.fetchone()[0]    
+                regex = r".+age_group':\s'([A-Za-z0-9]+\s?\-?[A-Za-z0-9]+\syears)" 
+                age_range = re.findall(regex, str(month))
+                cur.execute('SELECT id FROM AgeGroupTable WHERE Age_Group = ?', (age_range[0], ))   
+                ages = cur.fetchone()[0]   
+                cur.execute('INSERT OR IGNORE INTO Coviddeaths (YearandMonth_id, age_group_id, numDeaths) VALUES (?, ?, ?)' , (timeID, ages,  month["covid_19_deaths"]))
+                conn.commit() 
+
+    elif row_value == 64:
+          for month in data: 
+            index = 4    
+            if (month["age_group"] == age_groups[index]): 
+                regex = r".+start_date':\s'([0-9]+-[0-9]+)"  
+                yrmm = re.findall(regex, str(month))  
+                cur.execute('SELECT time_id FROM TimeTable WHERE YearandMonth = ?', (yrmm[0], ))  
+                timeID = cur.fetchone()[0]    
+                regex = r".+age_group':\s'([A-Za-z0-9]+\s?\-?[A-Za-z0-9]+\syears)" 
+                age_range = re.findall(regex, str(month))
+                cur.execute('SELECT id FROM AgeGroupTable WHERE Age_Group = ?', (age_range[0], ))   
+                ages = cur.fetchone()[0]   
+                cur.execute('INSERT OR IGNORE INTO Coviddeaths (YearandMonth_id, age_group_id, numDeaths) VALUES (?, ?, ?)' , (timeID, ages,  month["covid_19_deaths"]))
+                conn.commit() 
+    elif row_value == 80:
+          for month in data: 
+            index = 5    
+            if (month["age_group"] == age_groups[index]): 
+                regex = r".+start_date':\s'([0-9]+-[0-9]+)"  
+                yrmm = re.findall(regex, str(month))  
+                cur.execute('SELECT time_id FROM TimeTable WHERE YearandMonth = ?', (yrmm[0], ))  
+                timeID = cur.fetchone()[0]    
+                regex = r".+age_group':\s'([A-Za-z0-9]+\s?\-?[A-Za-z0-9]+\syears)" 
+                age_range = re.findall(regex, str(month))
+                cur.execute('SELECT id FROM AgeGroupTable WHERE Age_Group = ?', (age_range[0], ))   
+                ages = cur.fetchone()[0]   
+                cur.execute('INSERT OR IGNORE INTO Coviddeaths (YearandMonth_id, age_group_id, numDeaths) VALUES (?, ?, ?)' , (timeID, ages,  month["covid_19_deaths"]))
+                conn.commit()
+
+    elif row_value == 96:
+          for month in data: 
+            index = 6    
+            if (month["age_group"] == age_groups[index]): 
+                regex = r".+start_date':\s'([0-9]+-[0-9]+)"  
+                yrmm = re.findall(regex, str(month))  
+                cur.execute('SELECT time_id FROM TimeTable WHERE YearandMonth = ?', (yrmm[0], ))  
+                timeID = cur.fetchone()[0]    
+                regex = r".+age_group':\s'([A-Za-z0-9]+\s?\-?[A-Za-z0-9]+\syears)" 
+                age_range = re.findall(regex, str(month))
+                cur.execute('SELECT id FROM AgeGroupTable WHERE Age_Group = ?', (age_range[0], ))   
+                ages = cur.fetchone()[0]   
+                cur.execute('INSERT OR IGNORE INTO Coviddeaths (YearandMonth_id, age_group_id, numDeaths) VALUES (?, ?, ?)' , (timeID, ages,  month["covid_19_deaths"]))
+                conn.commit()   
+    else:
+        print("DONE RUNNING COVID DATA") 
+
+#calculations
 def tesla_monthly_average_price(cur, conn):
     cur.execute("SELECT date, high, low FROM Tesla_Stock")
     conn.commit()
@@ -630,7 +794,7 @@ def tesla_monthly_average_price(cur, conn):
     average_monthly_price.append((months_list[15], avg_apr2_price))
 
     return average_monthly_price
-    
+
 def gamestop_monthly_average_price(cur, conn):
     cur.execute("SELECT date, high, low FROM Gamestop_stock")
     conn.commit()
@@ -785,36 +949,6 @@ def gamestop_monthly_average_price(cur, conn):
 
     return average_monthly_price
 
-def write_calculations(cur, conn):
-    
-    tesla = tesla_monthly_average_price(cur, conn)
-    gamestop = gamestop_monthly_average_price(cur, conn)
-
-    f = open("calculations.txt", "w")
-    months_list = ["JANUARY 2020","FEBRUARY 2020","MARCH 2020", "APRIL 2020", "MAY 2020", "JUNE 2020", "JULY 2020",
-                 "AUGUST 2020", "SEPTEMBER 2020", "OCTOBER 2020", "NOVEMBER 2020", "DECEMBER 2020", "JANUARY 2021", "FEBRUARY 2021", 
-                 "MARCH 2021", "APRIL 2021"]
-
-    f.write("AVERAGE TESLA STOCK PRICES PER MONTH (1/2020 - 4/2021)\n")
-    f.write("\n")
-    for index in range(16):
-        f.write(months_list[index])
-        f.write(" : ")
-        f.write(str(tesla[index][1]))
-        f.write('\n')
-    
-    f.write('\n')
-    
-    f.write("AVERAGE GAMESTOP STOCK PRICES PER MONTH (1/2020 - 4/2021)\n")
-    f.write("\n")
-    for index in range(16):
-        f.write(months_list[index])
-        f.write(" : ")
-        f.write(str(gamestop[index][1]))
-        f.write('\n')
-
-    f.close()
-
 def average_price_tables(cur, conn):
     tesla = tesla_monthly_average_price(cur, conn)
     gamestop = gamestop_monthly_average_price(cur, conn)
@@ -848,24 +982,85 @@ def average_price_tables(cur, conn):
         month_id += 1
         unique_id += 1
 
+def write_calculations(cur, conn):
+    
+    tesla = tesla_monthly_average_price(cur, conn)
+    gamestop = gamestop_monthly_average_price(cur, conn)
+
+    cur.execute("SELECT Coviddeaths.YearandMonth_id, Coviddeaths.numDeaths, Average_Stock_Price.stock_symbol, Average_Stock_Price.average_price FROM Coviddeaths JOIN Average_Stock_Price ON Coviddeaths.YearandMonth_id = Average_Stock_Price.month_id")
+    conn.commit()
+
+    joined_data = []
+
+    for row in cur:
+        data.append(row)
+
+
+    # f = open("calculations.txt", "w")
+    # months_list = ["JANUARY 2020","FEBRUARY 2020","MARCH 2020", "APRIL 2020", "MAY 2020", "JUNE 2020", "JULY 2020",
+    #              "AUGUST 2020", "SEPTEMBER 2020", "OCTOBER 2020", "NOVEMBER 2020", "DECEMBER 2020", "JANUARY 2021", "FEBRUARY 2021", 
+    #              "MARCH 2021", "APRIL 2021"]
+
+    # f.write("NUMBER OF DEATHS PER MONTH (1/2020 - 4/2021) FOR ALL AGES 5 - 74\n")
+    # f.write("\n")
+    # for i in range(16):
+    #     cur.execute('SELECT SUM(numDeaths) from Coviddeaths WHERE YearandMonth_id = ?', (i + 1, )) 
+    #     x = cur.fetchone()[0]
+    #     f.write(months_list[i])
+    #     f.write(" : ")
+    #     f.write(str(x))
+    #     f.write('\n')
+
+    # f.write('\n')
+
+    # f.write("AVERAGE TESLA STOCK PRICES PER MONTH (1/2020 - 4/2021)\n")
+    # f.write("\n")
+    # for index in range(16):
+    #     f.write(months_list[index])
+    #     f.write(" : ")
+    #     f.write(str(tesla[index][1]))
+    #     f.write('\n')
+    
+    # f.write('\n')
+    
+    # f.write("AVERAGE GAMESTOP STOCK PRICES PER MONTH (1/2020 - 4/2021)\n")
+    # f.write("\n")
+    # for index in range(16):
+    #     f.write(months_list[index])
+    #     f.write(" : ")
+    #     f.write(str(gamestop[index][1]))
+    #     f.write('\n')
+
+    # f.close()
+
+
+
 def main():
     dir_path = os.path.dirname(os.path.realpath(__file__))
     CACHE_FILE = dir_path + '/' + "cache_stocks.json"
     stocks = ["TSLA", "GME"]
-    [get_data_from_cache(stock, CACHE_FILE) for stock in stocks]
-    json_data = read_data_from_file("cache_stocks.json")
-    cur, conn = set_up_database('stocks.db')
-    tsla_keys = get_stock_dates("TSLA", json_data)
-    gme_keys = get_stock_dates("GME", json_data)
-    set_up_tesla_stocks_table(json_data, cur, conn, tsla_keys)
-    set_up_gamestop_stocks_table(json_data, cur, conn, gme_keys)
+    [get_stocks_data_from_cache(stock, CACHE_FILE) for stock in stocks]
+    stocks_data = read_data_from_file("cache_stocks.json")
+    covid_data = get_covid_data("'By Month'", "United States", "All Sexes")
 
-    # run the following after you secure all data
-    write_calculations(cur, conn)
+    cur, conn = set_up_database('data.db')
+
+    tsla_keys = get_stock_dates("TSLA", stocks_data)
+    gme_keys = get_stock_dates("GME", stocks_data)
+    set_up_tesla_stocks_table(stocks_data, cur, conn, tsla_keys)
+    set_up_gamestop_stocks_table(stocks_data, cur, conn, gme_keys)
+
+    set_up_time_table(covid_data, cur, conn)
+    set_up_age_group_table(covid_data, cur, conn)
+    age_groups = get_selected_age_group(covid_data)
+    set_up_covid_deaths_table(covid_data, cur, conn, age_groups)
+
+    #run the following code after you secure all of the data in the database
     average_price_tables(cur, conn)
 
+    write_calculations(cur, conn)
+    
 
 if __name__ == "__main__":
     main()
     
-
