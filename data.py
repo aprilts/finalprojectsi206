@@ -987,51 +987,52 @@ def write_calculations(cur, conn):
     tesla = tesla_monthly_average_price(cur, conn)
     gamestop = gamestop_monthly_average_price(cur, conn)
 
-    cur.execute("SELECT Coviddeaths.YearandMonth_id, Coviddeaths.numDeaths, Average_Stock_Price.stock_symbol, Average_Stock_Price.average_price FROM Coviddeaths JOIN Average_Stock_Price ON Coviddeaths.YearandMonth_id = Average_Stock_Price.month_id")
-    conn.commit()
+    # cur.execute("SELECT Coviddeaths.YearandMonth_id, Coviddeaths.numDeaths, Average_Stock_Price.stock_symbol, Average_Stock_Price.average_price FROM Coviddeaths JOIN Average_Stock_Price ON Coviddeaths.YearandMonth_id = Average_Stock_Price.month_id")
+    # conn.commit()
 
-    joined_data = []
+    # joined_data = []
 
-    for row in cur:
-        data.append(row)
+    # for row in cur:
+    #     data.append(row)
 
+    # for 
 
-    # f = open("calculations.txt", "w")
-    # months_list = ["JANUARY 2020","FEBRUARY 2020","MARCH 2020", "APRIL 2020", "MAY 2020", "JUNE 2020", "JULY 2020",
-    #              "AUGUST 2020", "SEPTEMBER 2020", "OCTOBER 2020", "NOVEMBER 2020", "DECEMBER 2020", "JANUARY 2021", "FEBRUARY 2021", 
-    #              "MARCH 2021", "APRIL 2021"]
+    f = open("calculations.txt", "w")
+    months_list = ["JANUARY 2020","FEBRUARY 2020","MARCH 2020", "APRIL 2020", "MAY 2020", "JUNE 2020", "JULY 2020",
+                 "AUGUST 2020", "SEPTEMBER 2020", "OCTOBER 2020", "NOVEMBER 2020", "DECEMBER 2020", "JANUARY 2021", "FEBRUARY 2021", 
+                 "MARCH 2021", "APRIL 2021"]
 
-    # f.write("NUMBER OF DEATHS PER MONTH (1/2020 - 4/2021) FOR ALL AGES 5 - 74\n")
-    # f.write("\n")
-    # for i in range(16):
-    #     cur.execute('SELECT SUM(numDeaths) from Coviddeaths WHERE YearandMonth_id = ?', (i + 1, )) 
-    #     x = cur.fetchone()[0]
-    #     f.write(months_list[i])
-    #     f.write(" : ")
-    #     f.write(str(x))
-    #     f.write('\n')
+    f.write("NUMBER OF DEATHS PER MONTH (1/2020 - 4/2021) FOR ALL AGES 5 - 74\n")
+    f.write("\n")
+    for i in range(16):
+        cur.execute('SELECT SUM(numDeaths) from Coviddeaths WHERE YearandMonth_id = ?', (i + 1, )) 
+        x = cur.fetchone()[0]
+        f.write(months_list[i])
+        f.write(" : ")
+        f.write(str(x))
+        f.write('\n')
 
-    # f.write('\n')
+    f.write('\n')
 
-    # f.write("AVERAGE TESLA STOCK PRICES PER MONTH (1/2020 - 4/2021)\n")
-    # f.write("\n")
-    # for index in range(16):
-    #     f.write(months_list[index])
-    #     f.write(" : ")
-    #     f.write(str(tesla[index][1]))
-    #     f.write('\n')
+    f.write("AVERAGE TESLA STOCK PRICES PER MONTH (1/2020 - 4/2021)\n")
+    f.write("\n")
+    for index in range(16):
+        f.write(months_list[index])
+        f.write(" : ")
+        f.write(str(tesla[index][1]))
+        f.write('\n')
     
-    # f.write('\n')
+    f.write('\n')
     
-    # f.write("AVERAGE GAMESTOP STOCK PRICES PER MONTH (1/2020 - 4/2021)\n")
-    # f.write("\n")
-    # for index in range(16):
-    #     f.write(months_list[index])
-    #     f.write(" : ")
-    #     f.write(str(gamestop[index][1]))
-    #     f.write('\n')
+    f.write("AVERAGE GAMESTOP STOCK PRICES PER MONTH (1/2020 - 4/2021)\n")
+    f.write("\n")
+    for index in range(16):
+        f.write(months_list[index])
+        f.write(" : ")
+        f.write(str(gamestop[index][1]))
+        f.write('\n')
 
-    # f.close()
+    f.close()
 
 
 
@@ -1056,9 +1057,9 @@ def main():
     set_up_covid_deaths_table(covid_data, cur, conn, age_groups)
 
     #run the following code after you secure all of the data in the database
-    average_price_tables(cur, conn)
+    # average_price_tables(cur, conn)
 
-    write_calculations(cur, conn)
+    # write_calculations(cur, conn)
     
 
 if __name__ == "__main__":
