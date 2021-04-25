@@ -183,7 +183,15 @@ def calculations(cur, conn):
                  "AUGUST 2020", "SEPTEMBER 2020", "OCTOBER 2020", "NOVEMBER 2020", "DECEMBER 2020", "JANUARY 2021", "FEBRUARY 2021", 
                  "MARCH 2021", "APRIL 2021"]
 
-   
+    cur.execute('CREATE TABLE IF NOT EXISTS Calculations (date UNIQUE, deaths INT)')
+    
+    for i in range(len(months_list)):
+        cur.execute('SELECT SUM(numDeaths) from Coviddeaths WHERE YearandMonth_id = ?', (i + 1, )) 
+        deaths = cur.fetchone()[0]
+        cur.execute('INSERT OR IGNORE INTO Calculations (date, deaths) VALUES (?, ?)', (months_list[i], deaths ))
+  
+
+    conn.commit()
     f.write("NUMBER OF DEATHS PER MONTH (1/2020 - 4/2021) FOR ALL AGES 5 - 74\n")
     f.write("\n")
     for i in range(16):
@@ -194,6 +202,7 @@ def calculations(cur, conn):
         f.write(str(x))
         f.write('\n')
 
+    conn.commit()
     f.close()
 
 
