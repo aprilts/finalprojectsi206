@@ -4,6 +4,7 @@ import requests
 import json
 import re
 import os
+import matplotlib.pyplot as plt
 
 #The following functions retrieve data from APIs
 
@@ -1075,6 +1076,59 @@ def write_calculations(cur, conn):
 
     f.close()
 
+def viz(cur, conn):
+   
+    fig, ax = plt.subplots()
+    fig, ax2 = plt.subplots()
+
+    #set the x and y axis labels and the title for TSLA
+    ax.set_xlabel('Number of Deaths')
+    ax.set_ylabel('Price of Stock')
+    ax.set_title('Average Price of TSLA per COVID Deaths')
+
+    #set the x and y axis labels and the title for GME
+    ax2.set_xlabel('Number of Deaths')
+    ax2.set_ylabel('Price of Stock')
+    ax2.set_title('Average Price of GME per COVID Deaths')
+
+    #Finding Average Tesla Stock Price with corresponding Deaths of each month
+    numDeaths = []
+    teslaStockPrice = []
+    stock_and_deaths = []
+    cur.execute('SELECT Monthly_Deaths.deaths , Average_Stock_Price.average_price FROM Monthly_Deaths JOIN Average_Stock_Price WHERE Monthly_Deaths.month_id = Average_Stock_Price.month_id AND Average_Stock_Price.stock_symbol = ?', ('TSLA', ))
+    for row in cur:
+        stock_and_deaths.append(row)
+
+    stock_and_deaths = sorted(stock_and_deaths)
+    
+    for pair in stock_and_deaths:
+        numDeaths.append(pair[0])
+        teslaStockPrice.append(pair[1])
+    
+    p1 = ax.plot(numDeaths, teslaStockPrice, "-r")
+
+    #Finding Average GameStop Stock Price with corresponding Deaths of each month
+    numDeaths_2 = []
+    gamestopStockPrice = []
+    stock_and_deaths_2 = []
+    cur.execute('SELECT Monthly_Deaths.deaths , Average_Stock_Price.average_price FROM Monthly_Deaths JOIN Average_Stock_Price WHERE Monthly_Deaths.month_id = Average_Stock_Price.month_id AND Average_Stock_Price.stock_symbol = ?', ('GME', ))
+    for row in cur:
+        stock_and_deaths_2.append(row)
+
+    stock_and_deaths_2 = sorted(stock_and_deaths_2)
+
+    for pair in stock_and_deaths_2:
+        numDeaths_2.append(pair[0])
+        gamestopStockPrice.append(pair[1])
+    
+    p2 = ax2.plot(numDeaths_2, gamestopStockPrice, '-b')
+    
+    ax.grid()
+    ax2.grid()
+    plt.show()
+
+    
+
 
 
 def main():
@@ -1098,9 +1152,9 @@ def main():
     set_up_covid_deaths_table(covid_data, cur, conn, age_groups)
 
     #run the following code after you secure all of the data in the database
-    # calculation_tables(cur, conn)
-    # write_calculations(cur, conn)
-    
+    calculation_tables(cur, conn)
+    write_calculations(cur, conn)
+    viz(cur, conn)
 
 if __name__ == "__main__":
     main()
