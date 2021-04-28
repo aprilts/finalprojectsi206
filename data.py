@@ -56,10 +56,8 @@ def get_stocks_data_from_cache(symbol, CACHE_FILE):
     dictionary = read_cache(CACHE_FILE)
 
     if url in dictionary:
-        print("Using cache for {}".format(symbol))
         return dictionary[url]
     else:
-        print("Fetching data for {}".format(symbol))
         try:
             response = requests.get(url)
             stocks_data = response.text
@@ -306,6 +304,7 @@ def set_up_tesla_stocks_table(data, cur, conn, time_frame):
                 break
         else: 
             print("DONE RUNNING TESLA DATA") 
+            break
 
 def set_up_gamestop_stocks_table(data, cur, conn, time_frame):
     cur.execute("CREATE TABLE IF NOT EXISTS Gamestop_Stock (date TEXT PRIMARY KEY, open REAL, high REAL, low REAL, close REAL, volume REAL)")
@@ -492,6 +491,7 @@ def set_up_gamestop_stocks_table(data, cur, conn, time_frame):
                 break
         else:
             print("DONE RUNNING GAMESTOP DATA") 
+            break
 
 def set_up_time_table(data, cur, conn):
     cur.execute("CREATE TABLE IF NOT EXISTS Time_Table (time_id INT, year_month TEXT UNIQUE)")
@@ -954,8 +954,6 @@ def calculation_tables(cur, conn):
     tesla = tesla_monthly_average_price(cur, conn)
     gamestop = gamestop_monthly_average_price(cur, conn)
 
-    cur.execute("DROP TABLE IF EXISTS Calculations")
-
     cur.execute("CREATE TABLE IF NOT EXISTS Average_Stock_Price (id INTEGER PRIMARY KEY, month_id INTEGER, stock_symbol TEXT, average_price REAL)")
     cur.execute('CREATE TABLE IF NOT EXISTS Monthly_Deaths (id INTEGER PRIMARY KEY, month_id INTEGER, deaths INT)')
     conn.commit()
@@ -1076,7 +1074,7 @@ def write_calculations(cur, conn):
 
     f.close()
 
-def viz(cur, conn):
+def visualizations(cur, conn):
    
     fig, ax = plt.subplots()
     fig, ax2 = plt.subplots()
@@ -1127,10 +1125,6 @@ def viz(cur, conn):
     ax2.grid()
     plt.show()
 
-    
-
-
-
 def main():
     dir_path = os.path.dirname(os.path.realpath(__file__))
     CACHE_FILE = dir_path + '/' + "cache_stocks.json"
@@ -1154,7 +1148,7 @@ def main():
     #run the following code after you secure all of the data in the database
     calculation_tables(cur, conn)
     write_calculations(cur, conn)
-    viz(cur, conn)
+    visualizations(cur, conn)
 
 if __name__ == "__main__":
     main()
